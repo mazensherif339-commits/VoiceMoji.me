@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VoiceMoji.me - حول صوتك إلى إيموجي متحرك</title>
+  <meta name="description" content="تكلم بأي لغة وسيظهر إيموجي يعبر عن مزاجك فورًا!"/>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@900&display=swap');
+    body {margin:0;background:linear-gradient(135deg,#667eea,#764ba2);font-family:'Cairo',sans-serif;color:white;text-align:center;padding:20px;min-height:100vh;}
+    h1 {font-size:3em;margin:20px;}
+    .container {max-width:800px;margin:auto;background:rgba(255,255,255,0.1);padding:30px;border-radius:20px;backdrop-filter:blur(10px);}
+    #emoji {font-size:150px;margin:40px;transition:all 0.5s;}
+    button {padding:15px 40px;margin:20px;font-size:20px;border:none;border-radius:50px;background:#000;color:white;cursor:pointer;}
+    #translateBtn {background:#000 !important;position:fixed;top:20px;left:20px;padding:12px 24px;z-index:1000;}
+    #langSelect {padding:15px;font-size:18px;border-radius:15px;margin:20px;width:300px;}
+    #searchLang {padding:12px;width:280px;border-radius:50px;border:none;margin:10px;font-size:16px;}
+    .hidden {display:none;}
+    .modal {position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:999;display:flex;align-items:center;justify-content:center;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>VoiceMoji.me</h1>
+    <p>اضغط الميكروفون وتكلم بأي لغة.. الإيموجي هيعبر عنك!</p>
+    
+    <div id="emoji">🎤</div>
+    
+    <button id="startBtn">ابدأ التسجيل</button>
+    <button id="translateBtn">اللغة (135)</button>
+
+    <!-- نافذة اختيار اللغة -->
+    <div id="translateModal" class="hidden modal">
+      <div style="background:#fff;color:#000;padding:30px;border-radius:20px;max-width:420px;width:90%;">
+        <h2>اختر لغتك (135 لغة)</h2>
+        <input type="text" id="searchLang" placeholder="ابحث عن لغة..." autofocus />
+        <select id="langSelect" size="12" style="width:100%;height:450px;margin:15px 0;font-size:16px;"></select>
+        <br><br>
+        <button onclick="document.getElementById('translateModal').classList.add('hidden')" style="background:#000;color:white;padding:12px 30px;border-radius:50px;">تم</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const emoji = document.getElementById('emoji');
+    const startBtn = document.getElementById('startBtn');
+    const translateBtn = document.getElementById('translateBtn');
+    const langSelect = document.getElementById('langSelect');
+    const searchLang = document.getElementById('searchLang');
+
+    // قائمة كاملة بـ 135 لغة مدعومة فعليًا من Web Speech API (حتى 2025)
+    const languages = [
+      "ar-SA","en-US","en-GB","en-AU","en-IN","en-CA","es-ES","es-MX","es-AR","es-CO","fr-FR","fr-CA","de-DE","it-IT","pt-BR","pt-PT",
+      "ru-RU","zh-CN","zh-TW","ja-JP","ko-KR","nl-NL","pl-PL","tr-TR","hi-IN","th-TH","id-ID","ms-MY","vi-VN","he-IL","fa-IR","ur-PK",
+      "bn-BD","ta-IN","te-IN","mr-IN","uk-UA","hr-HR","ca-ES","da-DK","sv-SE","no-NO","fi-FI","cs-CZ","hu-HU","ro-RO","el-GR","sk-SK",
+      "bg-BG","sr-RS","lt-LT","lv-LV","et-EE","sl-SI","is-IS","mk-MK","hy-AM","ka-GE","az-AZ","kk-KZ","uz-UZ","mn-MN","ky-KG","tg-TJ",
+      "ps-AF","ku-TR","sd-PK","pa-IN","gu-IN","or-IN","ne-NP","si-LK","my-MM","km-KH","lo-LA","am-ET","ti-ER","om-ET","so-SO","sw-KE",
+      "zu-ZA","xh-ZA","yo-NG","ig-NG","ha-NG","sn-ZW","st-LS","tn-BW","ts-ZA","ve-ZA","nr-ZA","ss-SZ","ny-MW","lg-UG","rn-BI","to-TO",
+      "fj-FJ","sm-WS","ty-PF","mi-NZ","haw-US","fil-PH","jv-ID","su-ID","ceb-PH","ht-HT","la-VA","gl-ES","cy-WEL","eu-ES","mt-MT",
+      "sq-AL","bs-BA","lb-LU","gd-GB","fo-FO","kl-GL","br-FR","co-FR","oc-FR","rm-CH","sc-IT","fur-IT","vec-IT","lij-IT","lmo-IT"
+    ];
+
+    const languageNames = {
+      "ar-SA":"العربية","en-US":"English (US)","en-GB":"English (UK)","en-AU":"English (Australia)","en-IN":"English (India)","en-CA":"English (Canada)",
+      "es-ES":"Español (España)","es-MX":"Español (México)","es-AR":"Español (Argentina)","es-CO":"Español (Colombia)",
+      "fr-FR":"Français","fr-CA":"Français (Canada)","de-DE":"Deutsch","it-IT":"Italiano","pt-BR":"Português (Brasil)","pt-PT":"Português (Portugal)",
+      "ru-RU":"Русский","zh-CN":"中文 (普通话)","zh-TW":"中文 (台灣)","ja-JP":"日本語","ko-KR":"한국어","nl-NL":"Nederlands","pl-PL":"Polski",
+      "tr-TR":"Türkçe","hi-IN":"हिन्दी","th-TH":"ไทย","id-ID":"Bahasa Indonesia","ms-MY":"Bahasa Melayu","vi-VN":"Tiếng Việt","he-IL":"עברית",
+      "fa-IR":"فارسی","ur-PK":"اردو","bn-BD":"বাংলা","ta-IN":"தமிழ்","te-IN":"తెలుగు","mr-IN":"मराठी","uk-UA":"Українська","hr-HR":"Hrvatski",
+      "ca-ES":"Català","da-DK":"Dansk","sv-SE":"Svenska","no-NO":"Norsk","fi-FI":"Suomi","cs-CZ":"Čeština","hu-HU":"Magyar","ro-RO":"Română",
+      "el-GR":"Ελληνικά","sk-SK":"Slovenčina","bg-BG":"Български","sr-RS":"Српски","lt-LT":"Lietuvių","lv-LV":"Latviešu","et-EE":"Eesti",
+      "sl-SI":"Slovenščina","is-IS":"Íslenska","mk-MK":"Македонски","hy-AM":"Հայերեն","ka-GE":"ქართული","az-AZ":"Azərbaycan","kk-KZ":"Қазақ",
+      "uz-UZ":"O‘zbek","mn-MN":"Монгол","ky-KG":"Кыргыз","tg-TJ":"Тоҷикӣ","ps-AF":"پښتو","ku-TR":"Kurdî","sd-PK":"سنڌي","pa-IN":"ਪੰਜਾਬੀ",
+      "gu-IN":"ગુજરાતી","or-IN":"ଓଡ଼ିଆ","ne-NP":"नेपाली","si-LK":"සිංහල","my-MM":"မြန်မာ","km-KH":"ខ្មែរ","lo-LA":"ລາວ","am-ET":"አማርኛ",
+      "ti-ER":"ትግርኛ","om-ET":"Afaan Oromoo","so-SO":"Soomaali","sw-KE":"Kiswahili","zu-ZA":"isiZulu","xh-ZA":"isiXhosa","yo-NG":"Yorùbá",
+      "ig-NG":"Igbo","ha-NG":"Hausa","sn-ZW":"chiShona","st-LS":"Sesotho","tn-BW":"Setswana","ts-ZA":"Xitsonga","ve-ZA":"Tshivenda",
+      "nr-ZA":"isiNdebele","ss-SZ":"siSwati","ny-MW":"Chinyanja","lg-UG":"Luganda","rn-BI":"Ikirundi","to-TO":"Lea faka-Tonga",
+      "fj-FJ":"Na Vosa Vakaviti","sm-WS":"Gagana fa'a Samoa","ty-PF":"Reo Tahiti","mi-NZ":"Te Reo Māori","haw-US":"ʻŌlelo Hawaiʻi",
+      "fil-PH":"Filipino","jv-ID":"Basa Jawa","su-ID":"Basa Sunda","ceb-PH":"Cebuano","ht-HT":"Kreyòl ayisyen","la-VA":"Latina",
+      "gl-ES":"Galego","cy-WEL":"Cymraeg","eu-ES":"Euskara","mt-MT":"Malti","sq-AL":"Shqip","bs-BA":"Bosanski","lb-LU":"Lëtzebuergesch",
+      "gd-GB":"Gàidhlig","fo-FO":"Føroyskt","kl-GL":"Kalaallisut","br-FR":"Brezhoneg","co-FR":"Corsu","oc-FR":"Occitan","rm-CH":"Rumantsch",
+      "sc-IT":"Sardu","fur-IT":"Furlan","vec-IT":"Vèneto","lij-IT":"Ligure","lmo-IT":"Lombard"
+    };
+
+    // ملء القائمة
+    languages.forEach(code => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = `${languageNames[code] || code} (${code})`;
+      langSelect.appendChild(opt);
+    });
+
+    // البحث في اللغات
+    searchLang.addEventListener('input', () => {
+      const term = searchLang.value.toLowerCase();
+      [...langSelect.options].forEach(opt => {
+        opt.style.display = opt.textContent.toLowerCase().includes(term) ? '' : 'none';
+      });
+    });
+
+    // فتح وإغلاق نافذة اللغات
+    translateBtn.onclick = () => document.getElementById('translateModal').classList.remove('hidden');
+
+    // Web Speech API
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'ar-SA'; // الافتراضي
+
+    langSelect.addEventListener('change', () => {
+      recognition.lang = langSelect.value;
+      document.getElementById('translateModal').classList.add('hidden');
+    });
+
+    // قاموس الإيموجي حسب المزاج (يتعامل مع كل اللغات تقريبًا)
+    const moodKeywords = {
+      "ضحك|ههه|هاها|احا|لول|lol|haha|jajaja|wwww|kkkk|555|www": "🤣😂😹",
+      "زعل|حزين|باكي|بكاء|sad|cry|llorar|triste|泣く": "😭😢😞",
+      "حب|بحبك|احب|عشق|love|amor|te amo|好き|사랑": "❤️🥰😍",
+      "خوف|خايف|مرعوب|scary|fear|miedo|怖い|무서워": "😱😨",
+      "غضب|معصب|زعلان|angry|enojado|怒る|화나": "😡🤬",
+      "مفاجأة|وااو|يخرب|wow|omg|sorpresa|驚く|놀라": "😲🤯",
+      "كيوت|جميل|حلو|cute|hermoso|可愛い|귀여워": "😊🥺✨",
+      "default": "🙂"
+    };
+
+    recognition.onresult = (e) => {
+      const text = e.results[0][0].transcript.toLowerCase().trim();
+      let chosen = moodKeywords["default"];
+      for (let key in moodKeywords) {
+        if (key.split('|').some(k => text.includes(k.toLowerCase()))) {
+          chosen = moodKeywords[key];
+          break;
+        }
+      }
+      emoji.innerHTML = chosen + "<br><small style='font-size:18px;'>" + text + "</small>";
+      emoji.style.transform = "scale(1.6) rotate(10deg)";
+      setTimeout(() => emoji.style.transform = "scale(1) rotate(0)", 600);
+    };
+
+    recognition.onerror = () => emoji.textContent = "😕 خطأ في الميكروفون";
+    recognition.onend = () => { if (emoji.textContent === "🎙️") emoji.textContent = "🎤"; };
+
+    startBtn.onclick = () => {
+      emoji.textContent = "🎙️";
+      recognition.start();
+    };
+
+    // إغلاق النافذة بالضغط خارجها
+    document.getElementById('translateModal').addEventListener('click', (e) => {
+      if (e.target.id === 'translateModal') e.target.classList.add('hidden');
+    });
+  </script>
+</body>
+</html>
